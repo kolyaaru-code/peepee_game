@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Найди писюн</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Jost:wght@300;400;500&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --card: #1c1c28;
+    --accent: #c8a96e;
+    --accent2: #7c5cbf;
+    --text: #f0ead6;
+    --muted: #6b6880;
+    --win: #4caf7d;
+    --lose: #e05c5c;
+    --border: rgba(200,169,110,0.15);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Jost', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Фоновый узор */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 20% 10%, rgba(124,92,191,0.12) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 60% at 80% 80%, rgba(200,169,110,0.08) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 420px;
+    margin: 0 auto;
+    padding: 0 16px 32px;
+  }
+
+  /* Хедер */
+  .header {
+    padding: 24px 0 20px;
+    text-align: center;
+  }
+
+  .header-title {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 22px;
+    font-weight: 900;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, var(--accent), #e8c97e, var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .header-sub {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 4px;
+    letter-spacing: 0.5px;
+  }
+
+  /* Табы */
+  .tabs {
+    display: flex;
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 24px;
+    border: 1px solid var(--border);
+  }
+
+  .tab {
+    flex: 1;
+    padding: 10px;
+    text-align: center;
+    border-radius: 9px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--muted);
+    letter-spacing: 0.3px;
+  }
+
+  .tab.active {
+    background: var(--card);
+    color: var(--accent);
+    border: 1px solid var(--border);
+  }
+
+  /* Панели */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* Игра */
+  .player-info {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .player-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Unbounded', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: white;
+    flex-shrink: 0;
+  }
+
+  .player-name {
+    font-weight: 500;
+    font-size: 15px;
+  }
+
+  .player-stats {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .player-stats span { color: var(--accent); font-weight: 500; }
+
+  /* Сетка коробок */
+  .game-area {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+
+  .game-label {
+    text-align: center;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 18px;
+    letter-spacing: 0.3px;
+  }
+
+  .boxes-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+
+  .box-btn {
+    aspect-ratio: 1;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    font-size: 32px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .box-btn:active { transform: scale(0.92); }
+
+  .box-btn.win {
+    background: rgba(76,175,125,0.15);
+    border-color: var(--win);
+    animation: pulse-win 0.4s ease;
+  }
+
+  .box-btn.lose {
+    background: rgba(224,92,92,0.12);
+    border-color: var(--lose);
+  }
+
+  .box-btn.reveal {
+    background: rgba(200,169,110,0.1);
+    border-color: var(--accent);
+    animation: pulse-reveal 0.3s ease;
+  }
+
+  .box-btn:disabled { cursor: default; }
+
+  @keyframes pulse-win {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+  }
+
+  @keyframes pulse-reveal {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+  }
+
+  /* Результат */
+  .result-msg {
+    min-height: 44px;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.5;
+    transition: all 0.3s;
+  }
+
+  .result-msg.win { color: var(--win); }
+  .result-msg.lose { color: var(--lose); }
+
+  /* Кнопка играть снова */
+  .play-again-btn {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-family: 'Unbounded', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.15s;
+    display: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .play-again-btn:active { transform: scale(0.97); opacity: 0.9; }
+
+  /* Таблица лидеров */
+  .leaderboard-header {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  .leaderboard-title {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .leaderboard-sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  .leaderboard-list { display: flex; flex-direction: column; gap: 8px; }
+
+  .lb-row {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: border-color 0.2s;
+  }
+
+  .lb-row.me { border-color: rgba(200,169,110,0.4); }
+  .lb-row.top1 { border-color: rgba(255,215,0,0.3); }
+
+  .lb-rank {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    min-width: 28px;
+    text-align: center;
+  }
+
+  .lb-rank.gold { color: #ffd700; }
+  .lb-rank.silver { color: #c0c0c0; }
+  .lb-rank.bronze { color: #cd7f32; }
+  .lb-rank.poop { font-size: 16px; }
+
+  .lb-name {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .lb-stats {
+    text-align: right;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .lb-wins {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .lb-pct {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 1px;
+  }
+
+  .lb-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .loading {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .loading::after {
+    content: '';
+    animation: dots 1.2s infinite;
+  }
+
+  @keyframes dots {
+    0% { content: '.'; }
+    33% { content: '..'; }
+    66% { content: '...'; }
+  }
+
+  /* Полоска точности */
+  .accuracy-bar {
+    height: 3px;
+    background: var(--card);
+    border-radius: 2px;
+    margin-top: 4px;
+    overflow: hidden;
+  }
+
+  .accuracy-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+    border-radius: 2px;
+    transition: width 0.5s ease;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="header-title">🍆 НАЙДИ ПИСЮН</div>
+    <div class="header-sub">турнир позора · чат эксклюзив</div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('game')">🎮 Играть</div>
+    <div class="tab" onclick="switchTab('board')">🏆 Турнирка</div>
+  </div>
+
+  <!-- ИГРА -->
+  <div class="panel active" id="panel-game">
+    <div class="player-info" id="player-info">
+      <div class="player-avatar" id="player-avatar">?</div>
+      <div>
+        <div class="player-name" id="player-name">Загружаю...</div>
+        <div class="player-stats" id="player-stats">побед: <span>—</span> · промахов: <span>—</span></div>
+      </div>
+    </div>
+
+    <div class="game-area">
+      <div class="game-label" id="game-label">Открой одну коробку</div>
+      <div class="boxes-grid" id="boxes-grid"></div>
+      <div class="result-msg" id="result-msg"></div>
+    </div>
+
+    <button class="play-again-btn" id="play-again-btn" onclick="startGame()">
+      СЫГРАТЬ ЕЩЁ РАЗ
+    </button>
+  </div>
+
+  <!-- ТУРНИРКА -->
+  <div class="panel" id="panel-board">
+    <div class="leaderboard-header">
+      <div class="leaderboard-title">🍆 Рейтинг охотников</div>
+      <div class="leaderboard-sub">чем больше побед — тем страшнее репутация</div>
+    </div>
+    <div class="leaderboard-list" id="leaderboard-list">
+      <div class="loading">Загружаю турнирку</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// === КОНФИГ ===
+// СЮДА ВСТАВИШЬ URL СВОЕГО API НА RAILWAY (Этап 2)
+const API_URL = 'https://ТВОЙ-ПРОЕКТ.railway.app';
+
+// === TELEGRAM ===
+const tg = window.Telegram?.WebApp;
+if (tg) {
+  tg.ready();
+  tg.expand();
+}
+
+const tgUser = tg?.initDataUnsafe?.user;
+const userId = tgUser?.id || 0;
+const userName = tgUser?.first_name || 'Игрок';
+const chatId = tg?.initDataUnsafe?.chat?.id || 0;
+
+// === СОСТОЯНИЕ ===
+let myStats = { wins: 0, losses: 0 };
+let gameActive = false;
+
+// === ИНИЦИАЛИЗАЦИЯ ===
+async function init() {
+  updatePlayerUI();
+  await loadMyStats();
+  startGame();
+}
+
+function updatePlayerUI() {
+  document.getElementById('player-name').textContent = userName;
+  document.getElementById('player-avatar').textContent = userName[0]?.toUpperCase() || '?';
+  updateStatsUI();
+}
+
+function updateStatsUI() {
+  const total = myStats.wins + myStats.losses;
+  const pct = total > 0 ? Math.round((myStats.wins / total) * 100) : 0;
+  document.getElementById('player-stats').innerHTML =
+    `побед: <span>${myStats.wins}</span> · промахов: <span>${myStats.losses}</span> · точность: <span>${pct}%</span>`;
+}
+
+// === ЗАГРУЗКА СТАТОВ ===
+async function loadMyStats() {
+  if (!userId || !chatId) return;
+  try {
+    const r = await fetch(`${API_URL}/stats?user_id=${userId}&chat_id=${chatId}`);
+    if (r.ok) {
+      const data = await r.json();
+      myStats.wins = data.wins || 0;
+      myStats.losses = data.losses || 0;
+      updateStatsUI();
+    }
+  } catch(e) {
+    console.log('Не удалось загрузить статы:', e);
+  }
+}
+
+// === ИГРА ===
+function startGame() {
+  gameActive = true;
+  const winner = Math.floor(Math.random() * 9);
+  const grid = document.getElementById('boxes-grid');
+  const resultMsg = document.getElementById('result-msg');
+  const playBtn = document.getElementById('play-again-btn');
+  const label = document.getElementById('game-label');
+
+  resultMsg.textContent = '';
+  resultMsg.className = 'result-msg';
+  playBtn.style.display = 'none';
+  label.textContent = 'Открой одну коробку';
+
+  grid.innerHTML = '';
+  for (let i = 0; i < 9; i++) {
+    const btn = document.createElement('button');
+    btn.className = 'box-btn';
+    btn.textContent = '📦';
+    btn.onclick = () => openBox(i, winner, btn);
+    grid.appendChild(btn);
+  }
+}
+
+async function openBox(chosen, winner, btn) {
+  if (!gameActive) return;
+  gameActive = false;
+
+  const won = chosen === winner;
+  const buttons = document.querySelectorAll('.box-btn');
+
+  // Показываем результаты
+  buttons.forEach((b, i) => {
+    b.disabled = true;
+    if (i === winner) {
+      b.textContent = '🍆';
+      b.className = 'box-btn ' + (i === chosen ? 'win' : 'reveal');
+    } else if (i === chosen && !won) {
+      b.textContent = '💨';
+      b.className = 'box-btn lose';
+    }
+  });
+
+  // Сообщение
+  const resultMsg = document.getElementById('result-msg');
+  const taunts_win = [
+    `${userName} нашёл! Теперь что с ним делать будешь? 🍆`,
+    `Везунчик. Маме расскажи 🎉`,
+    `Нашёл. Видимо не первый раз ищет 🍆`,
+    `Справился. Запиши в резюме 🎉`,
+  ];
+  const taunts_lose = [
+    `${userName}, ну ты лох. Писюн был в коробке ${winner + 1} 💨`,
+    `Руки из жопы. Коробка ${winner + 1} же была очевидна 🗑`,
+    `Это талант — промазать так. Коробка ${winner + 1} 💨`,
+    `Серьёзно? Писюн в коробке ${winner + 1} сидел и ждал 🤡`,
+  ];
+
+  const taunts = won ? taunts_win : taunts_lose;
+  resultMsg.textContent = taunts[Math.floor(Math.random() * taunts.length)];
+  resultMsg.className = 'result-msg ' + (won ? 'win' : 'lose');
+
+  // Обновляем локальные статы
+  if (won) myStats.wins++; else myStats.losses++;
+  updateStatsUI();
+
+  // Вибрация
+  if (tg) {
+    tg.HapticFeedback.impactOccurred(won ? 'heavy' : 'light');
+  }
+
+  // Отправляем результат на сервер
+  await saveResult(won);
+
+  document.getElementById('play-again-btn').style.display = 'block';
+}
+
+async function saveResult(won) {
+  if (!userId || !chatId) return;
+  try {
+    await fetch(`${API_URL}/game-result`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id: userId,
+        user_name: userName,
+        chat_id: chatId,
+        won: won,
+        init_data: tg?.initData || ''
+      })
+    });
+  } catch(e) {
+    console.log('Не удалось сохранить результат:', e);
+  }
+}
+
+// === ТУРНИРКА ===
+async function loadLeaderboard() {
+  const list = document.getElementById('leaderboard-list');
+  list.innerHTML = '<div class="loading">Загружаю турнирку</div>';
+
+  if (!chatId) {
+    list.innerHTML = '<div class="lb-empty">Открой через Telegram чтобы видеть турнирку</div>';
+    return;
+  }
+
+  try {
+    const r = await fetch(`${API_URL}/leaderboard?chat_id=${chatId}`);
+    if (!r.ok) throw new Error('Ошибка сервера');
+    const data = await r.json();
+
+    if (!data.length) {
+      list.innerHTML = '<div class="lb-empty">Ещё никто не играл 😴<br>Будь первым!</div>';
+      return;
+    }
+
+    const ranks = ['🥇', '🥈', '🥉'];
+    list.innerHTML = data.map((p, i) => {
+      const total = p.wins + p.losses;
+      const pct = total > 0 ? Math.round((p.wins / total) * 100) : 0;
+      const isMe = p.user_id == userId;
+      const isLast = i === data.length - 1 && data.length > 3;
+
+      let rankEl = '';
+      if (i < 3) rankEl = `<div class="lb-rank ${['gold','silver','bronze'][i]}">${ranks[i]}</div>`;
+      else if (isLast) rankEl = `<div class="lb-rank poop">💩</div>`;
+      else rankEl = `<div class="lb-rank" style="color:var(--muted)">${i+1}</div>`;
+
+      return `
+        <div class="lb-row ${isMe ? 'me' : ''} ${i === 0 ? 'top1' : ''}">
+          ${rankEl}
+          <div class="lb-name">${p.user_name}${isMe ? ' 👈' : ''}</div>
+          <div class="lb-stats">
+            <div class="lb-wins">${p.wins} 🍆</div>
+            <div class="lb-pct">${pct}% точность</div>
+            <div class="accuracy-bar">
+              <div class="accuracy-fill" style="width:${pct}%"></div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch(e) {
+    list.innerHTML = '<div class="lb-empty">Не удалось загрузить 😅<br>Проверь позже</div>';
+  }
+}
+
+// === ТАБЫ ===
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', (i === 0 && tab === 'game') || (i === 1 && tab === 'board'));
+  });
+  document.getElementById('panel-game').classList.toggle('active', tab === 'game');
+  document.getElementById('panel-board').classList.toggle('active', tab === 'board');
+
+  if (tab === 'board') loadLeaderboard();
+}
+
+// === СТАРТ ===
+init();
+</script>
+</body>
+</html>
