@@ -425,13 +425,12 @@ if (tg) {
   tg.expand();
 }
 
-const tg = window.Telegram?.WebApp;
 const tgUser = tg?.initDataUnsafe?.user;
 const userId = tgUser?.id || 0;
 const userName = tgUser?.first_name || 'Игрок';
 const urlParams = new URLSearchParams(window.location.search);
 const chatId = parseInt(urlParams.get('chat_id')) || tg?.initDataUnsafe?.chat?.id || 0;
-
+  
 // === СОСТОЯНИЕ ===
 let myStats = { wins: 0, losses: 0 };
 let gameActive = false;
