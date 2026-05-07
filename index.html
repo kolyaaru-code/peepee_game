@@ -428,7 +428,9 @@ if (tg) {
 const tgUser = tg?.initDataUnsafe?.user;
 const userId = tgUser?.id || 0;
 const userName = tgUser?.first_name || 'Игрок';
-const chatId = tg?.initDataUnsafe?.chat?.id || 0;
+// Берём chat_id из URL параметра если есть, иначе из Telegram данных
+const urlParams = new URLSearchParams(window.location.search);
+const chatId = parseInt(urlParams.get('chat_id')) || tg?.initDataUnsafe?.chat?.id || 0;
 
 // === СОСТОЯНИЕ ===
 let myStats = { wins: 0, losses: 0 };
